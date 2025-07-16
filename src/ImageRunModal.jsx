@@ -126,6 +126,7 @@ export class ImageRunModal extends React.Component {
             healthcheck_start_period: 0,
             healthcheck_retries: 3,
             healthcheck_action: 0,
+            gpu: "", // GPU selection: "", "all" or specific indices like "0", "1" etc.
         };
         this.getCreateConfig = this.getCreateConfig.bind(this);
         this.onValueChanged = this.onValueChanged.bind(this);
@@ -195,6 +196,17 @@ export class ImageRunModal extends React.Component {
             });
             createConfig.env = envs;
         }
+        // Map selected GPU(s) to Podman device requests
+        if (this.state.gpu && this.state.gpu !== "") {
+            if (!createConfig.devices)
+                createConfig.devices = [];
+
+            const gpuStr = `nvidia.com/gpu=${this.state.gpu}`;
+            createConfig.devices.push({
+                path: gpuStr,
+            });
+        }
+
         if (this.state.volumes.some(volume => volume !== undefined)) {
             createConfig.mounts = this.state.volumes
                     .filter(volume => volume?.hostPath && volume?.containerPath)
@@ -244,6 +256,7 @@ export class ImageRunModal extends React.Component {
                     switch (optionName) {
                         case "--device":
                             if (!createConfig.devices) createConfig.devices = [];
+                            console.log("optionValue", optionValue);
                             if (optionValue) {
                                 // Parse device string like "/dev/sdc:/dev/xvdc:rwm" or "/dev/sdc"
                                 const parts = optionValue.split(':');
@@ -252,6 +265,7 @@ export class ImageRunModal extends React.Component {
                                     path_in_container: parts[1] || parts[0],
                                     cgroup_permissions: parts[2] || "rwm"
                                 };
+                                console.log("device", device);
                                 createConfig.devices.push(device);
                             }
                             break;
@@ -333,6 +347,7 @@ export class ImageRunModal extends React.Component {
             });
         }
 
+        console.log("createConfig", createConfig);
         return createConfig;
     }
 
@@ -1109,6 +1124,24 @@ export class ImageRunModal extends React.Component {
                                 </Flex>
                             </FormGroup>
                         }
+
+                        {/* GPU selection */}
+                        <FormGroup fieldId='run-image-dialog-gpu' label={_("GPU(s)")}
+                                  labelHelp={<Popover aria-label={_("GPU selection help")}
+                                                     enableFlip
+                                                     bodyContent={_("Select which GPU devices to add to the container. Choose 'all' or specific indices like 0,1,2,3.")}> <Button variant="plain" hasNoPadding aria-label="More info" icon={<OutlinedQuestionCircleIcon />} /> </Popover>}>
+                            <FormSelect id='run-image-dialog-gpu'
+                                        value={this.state.gpu}
+                                        onChange={(_event, value) => this.onValueChanged('gpu', value)}>
+                                <FormSelectOption key='none' value='' label={_("None")}/>
+                                <FormSelectOption key='all' value='all' label='all'/>
+                                <FormSelectOption key='0' value='0' label='0'/>
+                                <FormSelectOption key='1' value='1' label='1'/>
+                                <FormSelectOption key='2' value='2' label='2'/>
+                                <FormSelectOption key='3' value='3' label='3'/>
+                            </FormSelect>
+                        </FormGroup>
+
                         {((userLingeringEnabled && userPodmanRestartAvailable) || (this.isSystem() && podmanRestartAvailable)) &&
                         <Grid hasGutter md={6} sm={3}>
                             <GridItem>
@@ -1187,17 +1220,7 @@ export class ImageRunModal extends React.Component {
                                  helperText={_("Paste one or more lines of key=value pairs into any field for bulk import")}
                                  itemcomponent={EnvVar} />
 
-                        <DynamicListForm id='run-image-dialog-extra-options'
-                                 emptyStateString={_("No extra options specified")}
-                                 formclass='extra-option-form'
-                                 label={_("Extra options")}
-                                 actionLabel={_("Add option")}
-                                 validationFailed={dialogValues.validationFailed.extraOptions}
-                                 onValidationChange={value => this.dynamicListOnValidationChange('extraOptions', value)}
-                                 onChange={value => this.onValueChanged('extraOptions', value)}
-                                 default={{ optionName: null, optionValue: null }}
-                                 helperText={_("Add extra Podman options. Supported: --device, --cap-add, --cap-drop, --privileged, --read-only, --security-opt, --tmpfs, --sysctl, --ulimit")}
-                                 itemcomponent={ExtraOption} />
+                        {/* Extra options form removed per updated requirements */}
                     </Tab>
                     <Tab eventKey={2} title={<TabTitleText>{_("Health check")}</TabTitleText>} id="create-image-dialog-tab-healthcheck" className="pf-v6-c-form pf-m-horizontal">
                         <FormGroup fieldId='run-image-dialog-healthcheck-command' label={_("Command")}>
