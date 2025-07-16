@@ -31,6 +31,7 @@ import { TypeaheadSelect } from 'cockpit-components-typeahead-select';
 import { onDownloadContainer, onDownloadContainerFinished } from './Containers.jsx';
 import { EnvVar, validateEnvVar } from './Env.jsx';
 import { ErrorNotification } from './Notification.jsx';
+import { ExtraOption, validateExtraOption } from './ExtraOption.jsx';
 import { PublishPort, validatePublishPort } from './PublishPort.jsx';
 import { validateVolume, Volume } from './Volume.jsx';
 import * as client from './client.js';
@@ -104,6 +105,7 @@ export class ImageRunModal extends React.Component {
             inProgress: false,
             validationFailed: {},
             volumes: [],
+            extraOptions: [],
             restartPolicy: "no",
             restartTries: 5,
             pullLatestImage: false,
@@ -229,6 +231,24 @@ export class ImageRunModal extends React.Component {
                 Timeout: this.state.healthcheck_timeout * 1000000000,
             };
             createConfig.health_check_on_failure_action = this.state.healthcheck_action;
+        }
+
+        // Add extra options to create config
+        if (this.state.extraOptions.some(option => option !== undefined)) {
+            const extraArgs = [];
+            this.state.extraOptions.forEach(option => {
+                if (option !== undefined && option.optionName) {
+                    if (option.optionValue) {
+                        extraArgs.push(option.optionName, option.optionValue);
+                    } else {
+                        extraArgs.push(option.optionName);
+                    }
+                }
+            });
+            if (extraArgs.length > 0) {
+                // Add extra arguments to the create_args field
+                createConfig.create_args = extraArgs;
+            }
         }
 
         return createConfig;
@@ -665,6 +685,7 @@ export class ImageRunModal extends React.Component {
         return checkGroup(validationFailed.publish, this.state.publish) ||
             checkGroup(validationFailed.volumes, this.state.volumes) ||
             checkGroup(validationFailed.env, this.state.env) ||
+            checkGroup(validationFailed.extraOptions, this.state.extraOptions) ||
             !!validationFailed.containerName;
     };
 
@@ -678,7 +699,7 @@ export class ImageRunModal extends React.Component {
     }
 
     async validateForm() {
-        const { publish, volumes, env, containerName } = this.state;
+        const { publish, volumes, env, extraOptions, containerName } = this.state;
         const validationFailed = { };
 
         const publishValidation = publish.map(a => {
@@ -717,6 +738,18 @@ export class ImageRunModal extends React.Component {
         });
         if (envValidation.some(entry => entry && Object.keys(entry).length > 0))
             validationFailed.env = envValidation;
+
+        const extraOptionsValidation = extraOptions.map(a => {
+            if (a === undefined)
+                return undefined;
+
+            return {
+                optionName: validateExtraOption(a.optionName, "optionName"),
+                optionValue: validateExtraOption(a.optionValue, "optionValue"),
+            };
+        });
+        if (extraOptionsValidation.some(entry => entry && Object.keys(entry).length > 0))
+            validationFailed.extraOptions = extraOptionsValidation;
 
         const containerNameValidation = await this.validateContainerName(containerName);
 
@@ -1071,6 +1104,18 @@ export class ImageRunModal extends React.Component {
                                  default={{ envKey: null, envValue: null }}
                                  helperText={_("Paste one or more lines of key=value pairs into any field for bulk import")}
                                  itemcomponent={EnvVar} />
+
+                        <DynamicListForm id='run-image-dialog-extra-options'
+                                 emptyStateString={_("No extra options specified")}
+                                 formclass='extra-option-form'
+                                 label={_("Extra options")}
+                                 actionLabel={_("Add option")}
+                                 validationFailed={dialogValues.validationFailed.extraOptions}
+                                 onValidationChange={value => this.dynamicListOnValidationChange('extraOptions', value)}
+                                 onChange={value => this.onValueChanged('extraOptions', value)}
+                                 default={{ optionName: null, optionValue: null }}
+                                 helperText={_("Add extra Podman options like --device, --cap-add, etc.")}
+                                 itemcomponent={ExtraOption} />
                     </Tab>
                     <Tab eventKey={2} title={<TabTitleText>{_("Health check")}</TabTitleText>} id="create-image-dialog-tab-healthcheck" className="pf-v6-c-form pf-m-horizontal">
                         <FormGroup fieldId='run-image-dialog-healthcheck-command' label={_("Command")}>
