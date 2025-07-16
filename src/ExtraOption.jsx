@@ -36,7 +36,7 @@ export const ExtraOption = ({ idx, item, onChange, removeitem, additem, itemCoun
 
     return (
         <Grid hasGutter key={ item.key }>
-            <FormGroup className="pf-m-2-col-on-sm pf-m-2-col-on-md" fieldId={'run-image-extra-option-name-' + idx}>
+            <FormGroup className="pf-m-5-col-on-md" fieldId={'run-image-extra-option-name-' + idx}>
                 <TextInput id={'run-image-extra-option-name-' + idx}
                            placeholder={_("--option-name")}
                            value={item.optionName || ''}
@@ -44,7 +44,7 @@ export const ExtraOption = ({ idx, item, onChange, removeitem, additem, itemCoun
                            onChange={(_, value) => onItemChange('optionName', value)} />
                 <FormHelper helperTextInvalid={validationFailedIdx.optionName} />
             </FormGroup>
-            <FormGroup className="pf-m-2-col-on-sm pf-m-2-col-on-md" fieldId={'run-image-extra-option-value-' + idx}>
+            <FormGroup className="pf-m-5-col-on-md" fieldId={'run-image-extra-option-value-' + idx}>
                 <TextInput id={'run-image-extra-option-value-' + idx}
                            placeholder={_("value (optional)")}
                            value={item.optionValue || ''}
@@ -52,7 +52,7 @@ export const ExtraOption = ({ idx, item, onChange, removeitem, additem, itemCoun
                            onChange={(_, value) => onItemChange('optionValue', value)} />
                 <FormHelper helperTextInvalid={validationFailedIdx.optionValue} />
             </FormGroup>
-            <FormGroup className="pf-m-action-group pf-m-1-col-on-sm pf-m-1-col-on-md">
+            <FormGroup className="pf-m-action-group pf-m-2-col-on-md">
                 { itemCount > 1 && <Button variant='plain'
                                            className="btn-close"
                                            aria-label={_("Remove item")}

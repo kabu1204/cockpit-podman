@@ -233,22 +233,104 @@ export class ImageRunModal extends React.Component {
             createConfig.health_check_on_failure_action = this.state.healthcheck_action;
         }
 
-        // Add extra options to create config
+        // Process extra options and map them to appropriate API fields
         if (this.state.extraOptions.some(option => option !== undefined)) {
-            const extraArgs = [];
             this.state.extraOptions.forEach(option => {
                 if (option !== undefined && option.optionName) {
-                    if (option.optionValue) {
-                        extraArgs.push(option.optionName, option.optionValue);
-                    } else {
-                        extraArgs.push(option.optionName);
+                    const optionName = option.optionName;
+                    const optionValue = option.optionValue || "";
+
+                    // Map common Podman options to their API fields
+                    switch (optionName) {
+                        case "--device":
+                            if (!createConfig.devices) createConfig.devices = [];
+                            if (optionValue) {
+                                // Parse device string like "/dev/sdc:/dev/xvdc:rwm" or "/dev/sdc"
+                                const parts = optionValue.split(':');
+                                const device = {
+                                    path_on_host: parts[0],
+                                    path_in_container: parts[1] || parts[0],
+                                    cgroup_permissions: parts[2] || "rwm"
+                                };
+                                createConfig.devices.push(device);
+                            }
+                            break;
+
+                        case "--cap-add":
+                            if (!createConfig.cap_add) createConfig.cap_add = [];
+                            if (optionValue) {
+                                createConfig.cap_add.push(optionValue);
+                            }
+                            break;
+
+                        case "--cap-drop":
+                            if (!createConfig.cap_drop) createConfig.cap_drop = [];
+                            if (optionValue) {
+                                createConfig.cap_drop.push(optionValue);
+                            }
+                            break;
+
+                        case "--privileged":
+                            createConfig.privileged = true;
+                            break;
+
+                        case "--read-only":
+                            createConfig.read_only_filesystem = true;
+                            break;
+
+                        case "--security-opt":
+                            if (!createConfig.selinux_opts) createConfig.selinux_opts = [];
+                            if (optionValue) {
+                                createConfig.selinux_opts.push(optionValue);
+                            }
+                            break;
+
+                        case "--tmpfs":
+                            if (!createConfig.mounts) createConfig.mounts = [];
+                            if (optionValue) {
+                                // Parse tmpfs option like "/tmp:rw,size=100m"
+                                const [destination, options] = optionValue.split(':');
+                                createConfig.mounts.push({
+                                    type: "tmpfs",
+                                    destination: destination,
+                                    options: options ? options.split(',') : []
+                                });
+                            }
+                            break;
+
+                        case "--sysctl":
+                            if (!createConfig.sysctl) createConfig.sysctl = {};
+                            if (optionValue) {
+                                const [key, value] = optionValue.split('=');
+                                if (key && value) {
+                                    createConfig.sysctl[key] = value;
+                                }
+                            }
+                            break;
+
+                        case "--ulimit":
+                            if (!createConfig.r_limits) createConfig.r_limits = [];
+                            if (optionValue) {
+                                // Parse ulimit like "nofile=1024:2048"
+                                const [type, limits] = optionValue.split('=');
+                                if (type && limits) {
+                                    const [soft, hard] = limits.split(':');
+                                    createConfig.r_limits.push({
+                                        type: type,
+                                        soft: parseInt(soft) || 0,
+                                        hard: parseInt(hard || soft) || 0
+                                    });
+                                }
+                            }
+                            break;
+
+                        default:
+                            // For unrecognized options, we could either ignore them or log a warning
+                            console.warn(`Unrecognized container option: ${optionName}`);
+                            break;
                     }
                 }
             });
-            if (extraArgs.length > 0) {
-                // Add extra arguments to the create_args field
-                createConfig.create_args = extraArgs;
-            }
         }
 
         return createConfig;
@@ -1114,7 +1196,7 @@ export class ImageRunModal extends React.Component {
                                  onValidationChange={value => this.dynamicListOnValidationChange('extraOptions', value)}
                                  onChange={value => this.onValueChanged('extraOptions', value)}
                                  default={{ optionName: null, optionValue: null }}
-                                 helperText={_("Add extra Podman options like --device, --cap-add, etc.")}
+                                 helperText={_("Add extra Podman options. Supported: --device, --cap-add, --cap-drop, --privileged, --read-only, --security-opt, --tmpfs, --sysctl, --ulimit")}
                                  itemcomponent={ExtraOption} />
                     </Tab>
                     <Tab eventKey={2} title={<TabTitleText>{_("Health check")}</TabTitleText>} id="create-image-dialog-tab-healthcheck" className="pf-v6-c-form pf-m-horizontal">
