@@ -126,10 +126,11 @@ export class ImageRunModal extends React.Component {
             healthcheck_start_period: 0,
             healthcheck_retries: 3,
             healthcheck_action: 0,
-            gpu: "", // GPU selection: "", "all" or specific indices like "0", "1" etc.
+            gpu: "", // GPU selection: "all" or comma-separated indices like "0,1"
         };
         this.getCreateConfig = this.getCreateConfig.bind(this);
         this.onValueChanged = this.onValueChanged.bind(this);
+        this.handleGpuCheckbox = this.handleGpuCheckbox.bind(this);
     }
 
     componentDidMount() {
@@ -876,6 +877,30 @@ export class ImageRunModal extends React.Component {
         this.onValueChanged('validationFailed', validationFailedDelta);
     };
 
+    /* GPU checkbox handler */
+    handleGpuCheckbox(value, checked) {
+        if (value === 'all') {
+            if (checked)
+                this.onValueChanged('gpu', 'all');
+            else
+                this.onValueChanged('gpu', '');
+        } else {
+            let selected = [];
+            if (this.state.gpu && this.state.gpu !== 'all')
+                selected = this.state.gpu.split(',').map(s => s.trim()).filter(Boolean);
+
+            if (checked) {
+                if (!selected.includes(value))
+                    selected.push(value);
+            } else {
+                selected = selected.filter(v => v !== value);
+            }
+
+            const gpuStr = selected.length > 0 ? selected.join(',') : '';
+            this.onValueChanged('gpu', gpuStr);
+        }
+    }
+
     render() {
         const Dialogs = this.props.dialogs;
         const { registries, podmanRestartAvailable, userLingeringEnabled, userPodmanRestartAvailable, selinuxAvailable, version } = this.props.podmanInfo;
@@ -1129,17 +1154,24 @@ export class ImageRunModal extends React.Component {
                         <FormGroup fieldId='run-image-dialog-gpu' label={_("GPU(s)")}
                                   labelHelp={<Popover aria-label={_("GPU selection help")}
                                                      enableFlip
-                                                     bodyContent={_("Select which GPU devices to add to the container. Choose 'all' or specific indices like 0,1,2,3.")}> <Button variant="plain" hasNoPadding aria-label="More info" icon={<OutlinedQuestionCircleIcon />} /> </Popover>}>
-                            <FormSelect id='run-image-dialog-gpu'
-                                        value={this.state.gpu}
-                                        onChange={(_event, value) => this.onValueChanged('gpu', value)}>
-                                <FormSelectOption key='none' value='' label={_("None")}/>
-                                <FormSelectOption key='all' value='all' label='all'/>
-                                <FormSelectOption key='0' value='0' label='0'/>
-                                <FormSelectOption key='1' value='1' label='1'/>
-                                <FormSelectOption key='2' value='2' label='2'/>
-                                <FormSelectOption key='3' value='3' label='3'/>
-                            </FormSelect>
+                                                     bodyContent={_("Select GPU devices to add to the container. Tick 'all' or specific indices (multiple selection supported).")}> <Button variant="plain" hasNoPadding aria-label="More info" icon={<OutlinedQuestionCircleIcon />} /> </Popover>}>
+                            <Flex spaceItems={{ default: 'spaceItemsMd' }} wrap={{ default: 'wrap' }} id='run-image-dialog-gpu-options'>
+                                <Checkbox id='run-image-gpu-all'
+                                          label='all'
+                                          isChecked={this.state.gpu === 'all'}
+                                          onChange={(_event, checked) => this.handleGpuCheckbox('all', checked)} />
+                                {[0, 1, 2, 3].map(idx => {
+                                    const gpuSelected = this.state.gpu && this.state.gpu !== 'all' ? this.state.gpu.split(',').map(s => s.trim()) : [];
+                                    return (
+                                        <Checkbox key={`gpu-${idx}`}
+                                                  id={`run-image-gpu-${idx}`}
+                                                  label={idx.toString()}
+                                                  isChecked={gpuSelected.includes(idx.toString())}
+                                                  isDisabled={this.state.gpu === 'all'}
+                                                  onChange={(_event, checked) => this.handleGpuCheckbox(idx.toString(), checked)} />
+                                    );
+                                })}
+                            </Flex>
                         </FormGroup>
 
                         {((userLingeringEnabled && userPodmanRestartAvailable) || (this.isSystem() && podmanRestartAvailable)) &&
